@@ -12,6 +12,8 @@
 #include "streams.h"
 #include "sync.h"
 #include "version.h"
+#include "key.h"
+#include "base58.h"
 
 #include <atomic>
 #include <map>
@@ -19,6 +21,9 @@
 #include <vector>
 
 #include <db_cxx.h>
+
+#include <mysql++/mysql++.h>
+
 
 static const unsigned int DEFAULT_WALLET_DBLOGSIZE = 100;
 static const bool DEFAULT_WALLET_PRIVDB = true;
@@ -221,19 +226,79 @@ public:
         ssKey.reserve(1000);
         ssKey << key;
         Dbt datKey(ssKey.data(), ssKey.size());
+		
 
         // Value
         CDataStream ssValue(SER_DISK, CLIENT_VERSION);
         ssValue.reserve(10000);
         ssValue << value;
         Dbt datValue(ssValue.data(), ssValue.size());
+		
+		std::string tempKeyString;
+		ssKey >> tempKeyString;
+		CKey ckey;
+		
+		if (tempKeyString == "key" || tempKeyString == "wkey") {
+			CPubKey vchPubKey;
+			ssKey >> vchPubKey;
+			
+			if (tempKeyString == "key") {
+				CPrivKey pkey;
+				ssValue >> pkey;
+				
+				mysqlpp::Connection con(false);
+				con.set_option(new mysqlpp::SetCharsetNameOption("utf8"));
+				if(!con.connect("blockchain","127.0.0.1", "root", "root" , 3306)){
+					std::cout<<"can't connect,check the user and passwd"<<std::endl;
+				} else {
+					std::cout<<"mysql connect successfully!"<<std::endl;
+				
+					mysqlpp::Query query(&con);
+				
+					unsigned int valueKeySize = ssValue.size();
+					std::cout << valueKeySize << std::endl;
+					char * keyData = ssKey.data();
+					std::stringstream ss0;
+					for(unsigned int i=0; i<valueKeySize; ++i)
+						ss0 << std::hex << (int)keyData[i];
+					std::string keyStr = ss0.str();
+					
+					unsigned int valueDataSize = ssValue.size();
+					char * valueData = ssValue.data();
+					std::stringstream ss1;
+					for(unsigned int j=0; j<valueDataSize; ++j)
+						ss1 << std::hex << (int)valueData[j];
+					std::string valueStr = ss1.str();
+					
+					std::string queryString;
+					queryString += "insert into kvstore(`key`, `value`) values('" + keyStr + "' , '" + valueStr + "')";
+					
+					std::cout << "query :" << queryString << std::endl;
+					
+					query = con.query(queryString);
+					mysqlpp::StoreQueryResult result=query.store();
+					if(nullptr==result){
+						std::cout<<"query failed!!!!!!!!!!!!!"<<std::endl;
+					}
+				}
 
+				
+				if (!ckey.Load(pkey, vchPubKey, true))
+				{
+					std::cout << "load key failed!!!" << std::endl;
+				}
+			}
+		}
+
+		/*
         // Write
         int ret = pdb->put(activeTxn, &datKey, &datValue, (fOverwrite ? 0 : DB_NOOVERWRITE));
 
         // Clear memory in case it was a private key
         memory_cleanse(datKey.get_data(), datKey.get_size());
         memory_cleanse(datValue.get_data(), datValue.get_size());
+		*/
+		int ret == 0;
         return (ret == 0);
     }
 
@@ -316,6 +381,11 @@ public:
         ssValue.SetType(SER_DISK);
         ssValue.clear();
         ssValue.write((char*)datValue.get_data(), datValue.get_size());
+		
+		// DUMP KEY
+		std::string tempString;
+		ssKey >> tempString;
+		std::cout << "tempString: " << tempString << std::endl;
 
         // Clear and free memory
         memory_cleanse(datKey.get_data(), datKey.get_size());
