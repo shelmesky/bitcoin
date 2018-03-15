@@ -330,6 +330,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 pwallet->LoadWatchOnly(script);
         }
 		
+		/*
         else if (strType == "key" || strType == "wkey")
         {
             CPubKey vchPubKey;
@@ -394,6 +395,8 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 return false;
             }
         }
+		*/
+		
         else if (strType == "mkey")
         {
             unsigned int nID;
