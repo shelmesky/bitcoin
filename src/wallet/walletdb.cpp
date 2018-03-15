@@ -20,6 +20,17 @@
 
 #include <boost/thread.hpp>
 
+#include <boost/thread.hpp>
+
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/json.hpp>
+#include <bsoncxx/types.hpp>
+
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+
+extern mongocxx::instance inst;
+
 //
 // CWalletDB
 //
@@ -245,6 +256,7 @@ public:
     }
 };
 
+
 bool
 ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
              CWalletScanState &wss, std::string& strType, std::string& strErr)
@@ -397,6 +409,291 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         }
 		*/
 		
+		/*
+        else if (strType == "mkey")
+        {
+            unsigned int nID;
+            ssKey >> nID;
+            CMasterKey kMasterKey;
+            ssValue >> kMasterKey;
+            if(pwallet->mapMasterKeys.count(nID) != 0)
+            {
+                strErr = strprintf("Error reading wallet database: duplicate CMasterKey id %u", nID);
+                return false;
+            }
+            pwallet->mapMasterKeys[nID] = kMasterKey;
+            if (pwallet->nMasterKeyMaxID < nID)
+                pwallet->nMasterKeyMaxID = nID;
+        }
+        else if (strType == "ckey")
+        {
+            CPubKey vchPubKey;
+            ssKey >> vchPubKey;
+            if (!vchPubKey.IsValid())
+            {
+                strErr = "Error reading wallet database: CPubKey corrupt";
+                return false;
+            }
+            std::vector<unsigned char> vchPrivKey;
+            ssValue >> vchPrivKey;
+            wss.nCKeys++;
+
+            if (!pwallet->LoadCryptedKey(vchPubKey, vchPrivKey))
+            {
+                strErr = "Error reading wallet database: LoadCryptedKey failed";
+                return false;
+            }
+            wss.fIsEncrypted = true;
+        }
+		*/
+        else if (strType == "keymeta" || strType == "watchmeta")
+        {
+            CTxDestination keyID;
+            if (strType == "keymeta")
+            {
+				CPubKey vchPubKey;
+				ssKey >> vchPubKey;
+				keyID = vchPubKey.GetID();
+            }
+            else if (strType == "watchmeta")
+            {
+				CScript script;
+				ssKey >> script;
+				keyID = CScriptID(script);
+            }
+
+            CKeyMetadata keyMeta;
+            ssValue >> keyMeta;
+            wss.nKeyMeta++;
+
+            pwallet->LoadKeyMetadata(keyID, keyMeta);
+        }
+		
+        else if (strType == "defaultkey")
+        {
+            ssValue >> pwallet->vchDefaultKey;
+        }
+        else if (strType == "pool")
+        {
+            int64_t nIndex;
+            ssKey >> nIndex;
+            CKeyPool keypool;
+            ssValue >> keypool;
+
+            pwallet->LoadKeyPool(nIndex, keypool);
+        }
+        else if (strType == "version")
+        {
+            ssValue >> wss.nFileVersion;
+            if (wss.nFileVersion == 10300)
+                wss.nFileVersion = 300;
+        }
+        else if (strType == "cscript")
+        {
+            uint160 hash;
+            ssKey >> hash;
+            CScript script;
+            ssValue >> script;
+            if (!pwallet->LoadCScript(script))
+            {
+                strErr = "Error reading wallet database: LoadCScript failed";
+                return false;
+            }
+        }
+        else if (strType == "orderposnext")
+        {
+            ssValue >> pwallet->nOrderPosNext;
+        }
+        else if (strType == "destdata")
+        {
+            std::string strAddress, strKey, strValue;
+            ssKey >> strAddress;
+            ssKey >> strKey;
+            ssValue >> strValue;
+            if (!pwallet->LoadDestData(CBitcoinAddress(strAddress).Get(), strKey, strValue))
+            {
+                strErr = "Error reading wallet database: LoadDestData failed";
+                return false;
+            }
+        }
+        else if (strType == "hdchain")
+        {
+            CHDChain chain;
+            ssValue >> chain;
+            if (!pwallet->SetHDChain(chain, true))
+            {
+                strErr = "Error reading wallet database: SetHDChain failed";
+                return false;
+            }
+        }
+    } catch (...)
+    {
+        return false;
+    }
+    return true;
+}
+
+
+bool
+NewReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
+             CWalletScanState &wss, std::string& strType, std::string& strErr)
+{
+    try {
+        // Unserialize
+        // Taking advantage of the fact that pair serialization
+        // is just the two items serialized one after the other
+        //ssKey >> strType;
+		//std::cout << "################################# type " << strType << std::endl;
+		strType = "key";
+        if (strType == "name")
+        {
+            std::string strAddress;
+            ssKey >> strAddress;
+            ssValue >> pwallet->mapAddressBook[CBitcoinAddress(strAddress).Get()].name;
+        }
+        else if (strType == "purpose")
+        {
+            std::string strAddress;
+            ssKey >> strAddress;
+            ssValue >> pwallet->mapAddressBook[CBitcoinAddress(strAddress).Get()].purpose;
+        }
+        else if (strType == "tx")
+        {
+            uint256 hash;
+            ssKey >> hash;
+            CWalletTx wtx;
+            ssValue >> wtx;
+            CValidationState state;
+            if (!(CheckTransaction(wtx, state) && (wtx.GetHash() == hash) && state.IsValid()))
+                return false;
+
+            // Undo serialize changes in 31600
+            if (31404 <= wtx.fTimeReceivedIsTxTime && wtx.fTimeReceivedIsTxTime <= 31703)
+            {
+                if (!ssValue.empty())
+                {
+                    char fTmp;
+                    char fUnused;
+                    ssValue >> fTmp >> fUnused >> wtx.strFromAccount;
+                    strErr = strprintf("LoadWallet() upgrading tx ver=%d %d '%s' %s",
+                                       wtx.fTimeReceivedIsTxTime, fTmp, wtx.strFromAccount, hash.ToString());
+                    wtx.fTimeReceivedIsTxTime = fTmp;
+                }
+                else
+                {
+                    strErr = strprintf("LoadWallet() repairing tx ver=%d %s", wtx.fTimeReceivedIsTxTime, hash.ToString());
+                    wtx.fTimeReceivedIsTxTime = 0;
+                }
+                wss.vWalletUpgrade.push_back(hash);
+            }
+
+            if (wtx.nOrderPos == -1)
+                wss.fAnyUnordered = true;
+
+            pwallet->LoadToWallet(wtx);
+        }
+        else if (strType == "acentry")
+        {
+            std::string strAccount;
+            ssKey >> strAccount;
+            uint64_t nNumber;
+            ssKey >> nNumber;
+            if (nNumber > pwallet->nAccountingEntryNumber) {
+                pwallet->nAccountingEntryNumber = nNumber;
+            }
+
+            if (!wss.fAnyUnordered)
+            {
+                CAccountingEntry acentry;
+                ssValue >> acentry;
+                if (acentry.nOrderPos == -1)
+                    wss.fAnyUnordered = true;
+            }
+        }
+        else if (strType == "watchs")
+        {
+            wss.nWatchKeys++;
+            CScript script;
+            ssKey >> script;
+            char fYes;
+            ssValue >> fYes;
+            if (fYes == '1')
+                pwallet->LoadWatchOnly(script);
+        }
+		
+		
+        else if (strType == "key" || strType == "wkey")
+        {
+            CPubKey vchPubKey;
+            ssKey >> vchPubKey;
+			std::cout << "0000000000000000000000000000000000000000000000" << std::endl;
+            if (!vchPubKey.IsValid())
+            {
+                strErr = "Error reading wallet database: CPubKey corrupt";
+                return false;
+            }
+			std::cout << "111111111111111111111111111111111111111111111" << std::endl;
+            CKey key;
+            CPrivKey pkey;
+            uint256 hash;
+
+            if (strType == "key")
+            {
+                wss.nKeys++;
+                ssValue >> pkey;
+            } else {
+                CWalletKey wkey;
+                ssValue >> wkey;
+                pkey = wkey.vchPrivKey;
+            }
+
+            // Old wallets store keys as "key" [pubkey] => [privkey]
+            // ... which was slow for wallets with lots of keys, because the public key is re-derived from the private key
+            // using EC operations as a checksum.
+            // Newer wallets store keys as "key"[pubkey] => [privkey][hash(pubkey,privkey)], which is much faster while
+            // remaining backwards-compatible.
+            try
+            {
+                ssValue >> hash;
+            }
+            catch (...) {}
+
+            bool fSkipCheck = false;
+
+            if (!hash.IsNull())
+            {
+                // hash pubkey/privkey to accelerate wallet load
+                std::vector<unsigned char> vchKey;
+                vchKey.reserve(vchPubKey.size() + pkey.size());
+                vchKey.insert(vchKey.end(), vchPubKey.begin(), vchPubKey.end());
+                vchKey.insert(vchKey.end(), pkey.begin(), pkey.end());
+
+                if (Hash(vchKey.begin(), vchKey.end()) != hash)
+                {
+                    strErr = "Error reading wallet database: CPubKey/CPrivKey corrupt";
+                    return false;
+                }
+				std::cout << "22222222222222222222222222222222222222222222222222222" << std::endl;
+
+                fSkipCheck = true;
+            }
+
+            if (!key.Load(pkey, vchPubKey, fSkipCheck))
+            {
+                strErr = "Error reading wallet database: CPrivKey corrupt";
+                return false;
+            }
+			std::cout << "333333333333333333333333333333333333333333333333333333333" << std::endl;
+            if (!pwallet->LoadKey(key, vchPubKey))
+            {
+                strErr = "Error reading wallet database: LoadKey failed";
+                return false;
+            }
+			
+			std::cout << "44444444444444444444444444444444444444444444444444444444444" << std::endl;
+        }
+		
+		
         else if (strType == "mkey")
         {
             unsigned int nID;
@@ -548,7 +845,69 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
             LogPrintf("Error getting wallet database cursor\n");
             return DB_CORRUPT;
         }
+		
+		{
+			// read data from mongodb
+			mongocxx::client conn{mongocxx::uri{}};
+			auto collection = conn["blockchain"]["keycollection"];
+			auto cursor = collection.find({});
+			for (auto&& doc : cursor) {
+				auto keyElement = doc["key"].get_binary();
+				const uint8_t * keyData = keyElement.bytes;
+				uint32_t keyDataSize = keyElement.size;
+				
+				char *tempdata = (char *)keyData;
+				
+				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ";
+				for (unsigned int i=0; i<keyDataSize; i++) {
+					std::cout << int(tempdata[i]);
+				}
+				std::cout << std::endl;
+				
+				auto valueElement = doc["value"].get_binary();
+				const uint8_t * valueData = valueElement.bytes;
+				uint32_t valueDataSize = valueElement.size;
+			 
+				//std::cout << "1111111111111111111  " << (char *)keyData << "  " << keyDataSize << std::endl;
+				
+				// Read next record
+				CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+				ssKey.reserve(1000);
+				CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+				ssValue.reserve(10000);
+				
+				// Convert to streams
+				ssKey.SetType(SER_DISK);
+				ssKey.clear();
+				ssKey.write((char*)keyData, keyDataSize);
+				ssValue.SetType(SER_DISK);
+				ssValue.clear();
+				ssValue.write((char*)valueData, valueDataSize);
+				
+				//std::string tempString;
+				//ssKey >> tempString;
+				//std::cout << "-------------------------------------- " << tempString << std::endl;
+				
+				
+				//std::cout << "1111111 key 11111111 size: " << keyDataSize << " " << ssKey.str() << std::endl;
+				//std::cout << "1111111 value 11111111 size: " << valueDataSize << " " << ssValue.str() << std::endl;
+				
+				// Try to be tolerant of single corrupt records:
+				std::string strType, strErr;
+				if (!NewReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr))
+				{
+					//std::cout << "??????????????????????????????????????????????????" << std::endl;
+					// losing keys is considered a catastrophic error, anything else
+					// we assume the user can live with:
+					if (IsKeyType(strType)) {
+						result = DB_CORRUPT;
+					}
+				}
+			}
+			
+		}
 
+		
         while (true)
         {
             // Read next record
@@ -583,6 +942,7 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
             if (!strErr.empty())
                 LogPrintf("%s\n", strErr);
         }
+		
         pcursor->close();
     }
     catch (const boost::thread_interrupted&) {

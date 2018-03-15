@@ -173,7 +173,7 @@ public:
     static bool VerifyDatabaseFile(const std::string& walletFile, const fs::path& dataDir, std::string& warningStr, std::string& errorStr, CDBEnv::recoverFunc_type recoverFunc);
 	
 	// Test func
-	bool WriteDataToDatabase(std::string ssKeyType, char* key, unsigned int keySize, char* value, unsigned int valueSize);
+	int WriteDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize);
 	
 	bool LoadDataFromDatabase();
 	
@@ -193,6 +193,9 @@ public:
         ssKey.reserve(1000);
         ssKey << key;
         Dbt datKey(ssKey.data(), ssKey.size());
+		
+		std::string tempString;
+		ssKey >> tempString;
 
         // Read
         Dbt datValue;
@@ -220,6 +223,8 @@ public:
     template <typename K, typename T>
     bool Write(const K& key, const T& value, bool fOverwrite = true)
     {
+		int ret;
+		
         if (!pdb)
             return true;
         if (fReadOnly)
@@ -240,10 +245,25 @@ public:
 		// write key and value to database
 		std::string tempKeyString;
 		ssKey >> tempKeyString;
-		this->WriteDataToDatabase(tempKeyString, ssKey.data(), (unsigned int)ssKey.size(), ssValue.data(), (unsigned int)ssValue.size());
-
-        // Write
-        int ret = pdb->put(activeTxn, &datKey, &datValue, (fOverwrite ? 0 : DB_NOOVERWRITE));
+		//std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" << tempKeyString << std::endl;
+		if (tempKeyString== "key" || tempKeyString == "wkey" || tempKeyString == "mkey" || tempKeyString == "ckey") {
+			
+			std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ";
+			unsigned int keysize = (unsigned int)(ssKey.size());
+			char * keydata = ssKey.data();
+			for (unsigned int i=0; i<ssKey.size(); i++) {
+				std::cout << int(keydata[i]);
+			}
+			std::cout << std::endl;
+			
+			std::cout << "0000000 key 0000000 size: " << ssKey.size() << " " << ssKey.str() << std::endl;
+			std::cout << "0000000 value 0000000 size: " << ssValue.size() << " " << ssValue.str() << std::endl;
+			
+			ret = this->WriteDataToDatabase(tempKeyString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
+		} else {
+			// Write
+			ret = pdb->put(activeTxn, &datKey, &datValue, (fOverwrite ? 0 : DB_NOOVERWRITE));
+		}
 		
         // Clear memory in case it was a private key
         memory_cleanse(datKey.get_data(), datKey.get_size());

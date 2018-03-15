@@ -204,36 +204,33 @@ CDBEnv::VerifyResult CDBEnv::Verify(const std::string& strFile, recoverFunc_type
     return (fRecovered ? RECOVER_OK : RECOVER_FAIL);
 }
 
-bool CDB::WriteDataToDatabase(std::string ssKeyType, char* key, unsigned int keySize, char* value, unsigned int valueSize) {
+int CDB::WriteDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize) {
 	
-	if (ssKeyType == "key") {
+	//if (ssKeyType == "key") {
+		//std::cout << "000000000000000000 key: " << key << "key size: " << keySize << std::endl;
 		//std::cout << "000000000000000000 key: " << key << "key size: " << keySize << std::endl;
 		mongocxx::client conn{mongocxx::uri{}};
 		using bsoncxx::builder::basic::kvp;
 		
 		bsoncxx::builder::basic::document document{};
 		
-		bsoncxx::types::b_binary bin_data;
-		bin_data.size = keySize;
-		bin_data.bytes = (uint8_t*)key;
+		bsoncxx::types::b_binary bin_data_key;
+		bin_data_key.size = keySize;
+		bin_data_key.bytes = (uint8_t*)key;
 		
-		document.append(kvp("key", bin_data));
+		bsoncxx::types::b_binary bin_data_value;
+		bin_data_value.size = valueSize;
+		bin_data_value.bytes = (uint8_t*)value;
+		
+		document.append(kvp("type", ssKeyType));
+		document.append(kvp("key", bin_data_key));
+		document.append(kvp("value", bin_data_value));
 
 		auto collection = conn["blockchain"]["keycollection"];
 		collection.insert_one(document.view());
-		
-		/*
-		auto cursor = collection.find({});
-
-		for (auto&& doc : cursor) {
-		    const uint8_t * data = doc["key"].get_binary().bytes;
-			//std::cout << "1111111111111111111" << (char *)data << std::endl;
-			break;
-		}
-		*/
-	}
+	//}
 	
-	return true;
+	return 0;
 }
 
 bool CDB::LoadDataFromDatabase() {
