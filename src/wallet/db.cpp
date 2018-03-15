@@ -20,6 +20,16 @@
 
 #include <boost/thread.hpp>
 
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/json.hpp>
+#include <bsoncxx/types.hpp>
+
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+
+mongocxx::instance inst{};
+
+
 namespace {
 //! Make sure database has a unique fileid within the environment. If it
 //! doesn't, throw an error. BDB caches do not work properly when more than one
@@ -192,6 +202,40 @@ CDBEnv::VerifyResult CDBEnv::Verify(const std::string& strFile, recoverFunc_type
     // Try to recover:
     bool fRecovered = (*recoverFunc)(strFile, out_backup_filename);
     return (fRecovered ? RECOVER_OK : RECOVER_FAIL);
+}
+
+bool CDB::WriteDataToDatabase(std::string ssKeyType, char* key, unsigned int keySize, char* value, unsigned int valueSize) {
+	
+	if (ssKeyType == "key") {
+		std::cout << "000000000000000000 key: " << key << "key size: " << keySize << std::endl;
+		mongocxx::client conn{mongocxx::uri{}};
+		using bsoncxx::builder::basic::kvp;
+		
+		bsoncxx::builder::basic::document document{};
+		
+		bsoncxx::types::b_binary bin_data;
+		bin_data.size = keySize;
+		bin_data.bytes = (uint8_t*)key;
+		
+		document.append(kvp("key", bin_data));
+
+		auto collection = conn["testdb"]["keycollection"];
+		collection.insert_one(document.view());
+		
+		auto cursor = collection.find({});
+
+		for (auto&& doc : cursor) {
+		    const uint8_t * data = doc["key"].get_binary().bytes;
+			std::cout << "1111111111111111111" << (char *)data << std::endl;
+			break;
+		}
+	}
+	
+	return true;
+}
+
+bool CDB::LoadDataFromDatabase() {
+	return true;
 }
 
 bool CDB::Recover(const std::string& filename, void *callbackDataIn, bool (*recoverKVcallback)(void* callbackData, CDataStream ssKey, CDataStream ssValue), std::string& newFilename)
