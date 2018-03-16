@@ -266,6 +266,7 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         // Taking advantage of the fact that pair serialization
         // is just the two items serialized one after the other
         ssKey >> strType;
+		/*
         if (strType == "name")
         {
             std::string strAddress;
@@ -278,7 +279,9 @@ ReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             ssKey >> strAddress;
             ssValue >> pwallet->mapAddressBook[CBitcoinAddress(strAddress).Get()].purpose;
         }
-        else if (strType == "tx")
+		*/
+		
+        if (strType == "tx")
         {
             uint256 hash;
             ssKey >> hash;
@@ -818,6 +821,69 @@ bool CWalletDB::IsKeyType(const std::string& strType)
             strType == "mkey" || strType == "ckey");
 }
 
+bool LoadDataFromDatabse(CWallet* pwallet, CWalletScanState& wss, DBErrors& result, std::string coll_name, std::vector<std::string> &keyTypeList) {
+	// read data from mongodb
+			mongocxx::client conn{mongocxx::uri{}};
+			auto collection = conn["blockchain"][coll_name];
+			auto cursor = collection.find({});
+			for (auto&& doc : cursor) {
+				auto keyElement = doc["key"].get_binary();
+				const uint8_t * keyData = keyElement.bytes;
+				uint32_t keyDataSize = keyElement.size;
+				
+				auto valueElement = doc["value"].get_binary();
+				const uint8_t * valueData = valueElement.bytes;
+				uint32_t valueDataSize = valueElement.size;
+				
+				// Read next record
+				CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+				ssKey.reserve(1000);
+				CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+				ssValue.reserve(10000);
+				
+				// Convert to streams
+				ssKey.SetType(SER_DISK);
+				ssKey.clear();
+				ssKey.write((char*)keyData, keyDataSize);
+				ssValue.SetType(SER_DISK);
+				ssValue.clear();
+				ssValue.write((char*)valueData, valueDataSize);
+				
+				// Try to be tolerant of single corrupt records:
+				std::string strType, strErr;
+				
+				std::vector<std::string>::iterator begin = keyTypeList.begin();
+				while(begin != keyTypeList.end()) {
+					if(*begin == "key") {
+						strType = "key";
+						break;
+					}
+					if(*begin == "name") {
+						strType = "name";
+					}
+					if(*begin == "purpose"){
+						strType = "purpose";
+					}
+					++begin;
+				}
+				
+				if (!NewReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr))
+				{
+					// losing keys is considered a catastrophic error, anything else
+					// we assume the user can live with:
+					if (strType== "key" || strType == "wkey" || strType == "mkey" || strType == "ckey") {
+						result = DB_CORRUPT;
+					}
+					
+					if (strType == "name" || strType == "purpose") {
+						result = DB_CORRUPT;
+					}
+				}
+			}
+		
+			return true;
+}
+
 DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 {
     pwallet->vchDefaultKey = CPubKey();
@@ -843,56 +909,19 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
             return DB_CORRUPT;
         }
 		
-		{
-			// read data from mongodb
-			mongocxx::client conn{mongocxx::uri{}};
-			auto collection = conn["blockchain"]["keycollection"];
-			auto cursor = collection.find({});
-			for (auto&& doc : cursor) {
-				auto keyElement = doc["key"].get_binary();
-				const uint8_t * keyData = keyElement.bytes;
-				uint32_t keyDataSize = keyElement.size;
-				
-				char *tempdata = (char *)keyData;
-				
-				for (unsigned int i=0; i<keyDataSize; i++) {
-					std::cout << int(tempdata[i]);
-				}
-				std::cout << std::endl;
-				
-				auto valueElement = doc["value"].get_binary();
-				const uint8_t * valueData = valueElement.bytes;
-				uint32_t valueDataSize = valueElement.size;
-				
-				// Read next record
-				CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-				ssKey.reserve(1000);
-				CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-				ssValue.reserve(10000);
-				
-				// Convert to streams
-				ssKey.SetType(SER_DISK);
-				ssKey.clear();
-				ssKey.write((char*)keyData, keyDataSize);
-				ssValue.SetType(SER_DISK);
-				ssValue.clear();
-				ssValue.write((char*)valueData, valueDataSize);
-				
-				// Try to be tolerant of single corrupt records:
-				std::string strType, strErr;
-				strType = "key";
-				if (!NewReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr))
-				{
-					// losing keys is considered a catastrophic error, anything else
-					// we assume the user can live with:
-					if (IsKeyType(strType)) {
-						result = DB_CORRUPT;
-					}
-				}
-			}
-			
-		}
-
+		std::vector<std::string> keyTypeList;
+		
+		keyTypeList.clear();
+		keyTypeList.insert(keyTypeList.end(), {"key", "wkey", "mkey", "ckey"});
+		LoadDataFromDatabse(pwallet, wss, result, "keycollection", keyTypeList);
+		
+		keyTypeList.clear();
+		keyTypeList.insert(keyTypeList.end(), {"name"});
+		LoadDataFromDatabse(pwallet, wss, result, "namecollection", keyTypeList);
+		
+		keyTypeList.clear();
+		keyTypeList.insert(keyTypeList.end(), {"purpose"});
+		LoadDataFromDatabse(pwallet, wss, result, "purposecollection", keyTypeList);
 		
         while (true)
         {
