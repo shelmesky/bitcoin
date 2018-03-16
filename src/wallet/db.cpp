@@ -225,7 +225,7 @@ int CDB::WriteDataToDatabase(std::string coll_name, std::string ssKeyType, char 
 		document.append(kvp("value", bin_data_value));
 
 		auto collection = conn["blockchain"][coll_name];
-		collection.insert_one(document.view());
+		collection.insert_one(document.view()); //TODO: 获取插入返回的oid，判断是否正确插入数据
 	}
 	
 	return 0;
