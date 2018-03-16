@@ -544,7 +544,6 @@ NewReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         // is just the two items serialized one after the other
         //ssKey >> strType;
 		//std::cout << "################################# type " << strType << std::endl;
-		strType = "key";
         if (strType == "name")
         {
             std::string strAddress;
@@ -858,7 +857,6 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 				
 				char *tempdata = (char *)keyData;
 				
-				std::cout << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ";
 				for (unsigned int i=0; i<keyDataSize; i++) {
 					std::cout << int(tempdata[i]);
 				}
@@ -867,8 +865,6 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 				auto valueElement = doc["value"].get_binary();
 				const uint8_t * valueData = valueElement.bytes;
 				uint32_t valueDataSize = valueElement.size;
-			 
-				//std::cout << "1111111111111111111  " << (char *)keyData << "  " << keyDataSize << std::endl;
 				
 				// Read next record
 				CDataStream ssKey(SER_DISK, CLIENT_VERSION);
@@ -884,19 +880,11 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 				ssValue.clear();
 				ssValue.write((char*)valueData, valueDataSize);
 				
-				//std::string tempString;
-				//ssKey >> tempString;
-				//std::cout << "-------------------------------------- " << tempString << std::endl;
-				
-				
-				//std::cout << "1111111 key 11111111 size: " << keyDataSize << " " << ssKey.str() << std::endl;
-				//std::cout << "1111111 value 11111111 size: " << valueDataSize << " " << ssValue.str() << std::endl;
-				
 				// Try to be tolerant of single corrupt records:
 				std::string strType, strErr;
+				strType = "key";
 				if (!NewReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr))
 				{
-					//std::cout << "??????????????????????????????????????????????????" << std::endl;
 					// losing keys is considered a catastrophic error, anything else
 					// we assume the user can live with:
 					if (IsKeyType(strType)) {
