@@ -913,15 +913,15 @@ DBErrors CWalletDB::LoadWallet(CWallet* pwallet)
 		
 		keyTypeList.clear();
 		keyTypeList.insert(keyTypeList.end(), {"key", "wkey", "mkey", "ckey"});
-		LoadDataFromDatabse(pwallet, wss, result, "keycollection", keyTypeList);
+		LoadDataFromDatabse(pwallet, wss, result, "key", keyTypeList);
 		
 		keyTypeList.clear();
 		keyTypeList.insert(keyTypeList.end(), {"name"});
-		LoadDataFromDatabse(pwallet, wss, result, "namecollection", keyTypeList);
+		LoadDataFromDatabse(pwallet, wss, result, "name", keyTypeList);
 		
 		keyTypeList.clear();
 		keyTypeList.insert(keyTypeList.end(), {"purpose"});
-		LoadDataFromDatabse(pwallet, wss, result, "purposecollection", keyTypeList);
+		LoadDataFromDatabse(pwallet, wss, result, "purpose", keyTypeList);
 		
         while (true)
         {

@@ -204,7 +204,7 @@ CDBEnv::VerifyResult CDBEnv::Verify(const std::string& strFile, recoverFunc_type
     return (fRecovered ? RECOVER_OK : RECOVER_FAIL);
 }
 
-int CDB::WriteKeyDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize) {
+int CDB::WriteDataToDatabase(std::string coll_name, std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize) {
 	
 	{
 		mongocxx::client conn{mongocxx::uri{}};
@@ -224,69 +224,11 @@ int CDB::WriteKeyDataToDatabase(std::string ssKeyType, char * key, unsigned int 
 		document.append(kvp("key", bin_data_key));
 		document.append(kvp("value", bin_data_value));
 
-		auto collection = conn["blockchain"]["keycollection"];
+		auto collection = conn["blockchain"][coll_name];
 		collection.insert_one(document.view());
 	}
 	
 	return 0;
-}
-
-int CDB::WriteNameDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize) {
-	
-	{
-		mongocxx::client conn{mongocxx::uri{}};
-		using bsoncxx::builder::basic::kvp;
-		
-		bsoncxx::builder::basic::document document{};
-		
-		bsoncxx::types::b_binary bin_data_key;
-		bin_data_key.size = keySize;
-		bin_data_key.bytes = (uint8_t*)key;
-		
-		bsoncxx::types::b_binary bin_data_value;
-		bin_data_value.size = valueSize;
-		bin_data_value.bytes = (uint8_t*)value;
-		
-		document.append(kvp("type", ssKeyType));
-		document.append(kvp("key", bin_data_key));
-		document.append(kvp("value", bin_data_value));
-
-		auto collection = conn["blockchain"]["namecollection"];
-		collection.insert_one(document.view());
-	}
-	
-	return 0;
-}
-
-int CDB::WritePurposeDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize) {
-	
-	{
-		mongocxx::client conn{mongocxx::uri{}};
-		using bsoncxx::builder::basic::kvp;
-		
-		bsoncxx::builder::basic::document document{};
-		
-		bsoncxx::types::b_binary bin_data_key;
-		bin_data_key.size = keySize;
-		bin_data_key.bytes = (uint8_t*)key;
-		
-		bsoncxx::types::b_binary bin_data_value;
-		bin_data_value.size = valueSize;
-		bin_data_value.bytes = (uint8_t*)value;
-		
-		document.append(kvp("type", ssKeyType));
-		document.append(kvp("key", bin_data_key));
-		document.append(kvp("value", bin_data_value));
-
-		auto collection = conn["blockchain"]["purposecollection"];
-		collection.insert_one(document.view());
-	}
-	
-	return 0;
-}
-
-bool CDB::LoadDataFromDatabase() {
-	return true;
 }
 
 bool CDB::Recover(const std::string& filename, void *callbackDataIn, bool (*recoverKVcallback)(void* callbackData, CDataStream ssKey, CDataStream ssValue), std::string& newFilename)

@@ -173,12 +173,7 @@ public:
     static bool VerifyDatabaseFile(const std::string& walletFile, const fs::path& dataDir, std::string& warningStr, std::string& errorStr, CDBEnv::recoverFunc_type recoverFunc);
 	
 	// Test func
-	int WriteKeyDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize);
-	int WriteNameDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize);
-	int WritePurposeDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize);
-	
-	bool LoadDataFromDatabase();
-	
+	int WriteDataToDatabase(std::string coll_name, std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize);
 private:
     CDB(const CDB&);
     void operator=(const CDB&);
@@ -247,26 +242,24 @@ public:
 		// write key and value to database
 		std::string keyTypeString;
 		ssKey >> keyTypeString;
-		
-		//std::cout << "key type: " << tempKeyString << std::endl;
 
 		if (keyTypeString== "key" || keyTypeString == "wkey" || keyTypeString == "mkey" || keyTypeString == "ckey") {
 			
 			unsigned int keysize = (unsigned int)(ssKey.size());
 			char * keydata = ssKey.data();
-			ret = this->WriteKeyDataToDatabase(keyTypeString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
+			ret = this->WriteDataToDatabase("key", keyTypeString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
 			
 		} else if (keyTypeString == "name") {	
 			
 			unsigned int keysize = (unsigned int)(ssKey.size());
 			char * keydata = ssKey.data();
-			ret = this->WriteNameDataToDatabase(keyTypeString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
+			ret = this->WriteDataToDatabase("name", keyTypeString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
 
 		}else if (keyTypeString == "purpose"){
 			
 			unsigned int keysize = (unsigned int)(ssKey.size());
 			char * keydata = ssKey.data();
-			ret = this->WritePurposeDataToDatabase(keyTypeString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
+			ret = this->WriteDataToDatabase("purpose", keyTypeString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
 
 		} else {
 			// Write
