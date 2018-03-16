@@ -625,13 +625,13 @@ NewReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
         {
             CPubKey vchPubKey;
             ssKey >> vchPubKey;
-			std::cout << "0000000000000000000000000000000000000000000000" << std::endl;
+			
             if (!vchPubKey.IsValid())
             {
                 strErr = "Error reading wallet database: CPubKey corrupt";
                 return false;
             }
-			std::cout << "111111111111111111111111111111111111111111111" << std::endl;
+			
             CKey key;
             CPrivKey pkey;
             uint256 hash;
@@ -672,7 +672,6 @@ NewReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                     strErr = "Error reading wallet database: CPubKey/CPrivKey corrupt";
                     return false;
                 }
-				std::cout << "22222222222222222222222222222222222222222222222222222" << std::endl;
 
                 fSkipCheck = true;
             }
@@ -682,14 +681,13 @@ NewReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
                 strErr = "Error reading wallet database: CPrivKey corrupt";
                 return false;
             }
-			std::cout << "333333333333333333333333333333333333333333333333333333333" << std::endl;
+			
             if (!pwallet->LoadKey(key, vchPubKey))
             {
                 strErr = "Error reading wallet database: LoadKey failed";
                 return false;
             }
 			
-			std::cout << "44444444444444444444444444444444444444444444444444444444444" << std::endl;
         }
 		
 		
