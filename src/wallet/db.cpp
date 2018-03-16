@@ -206,9 +206,7 @@ CDBEnv::VerifyResult CDBEnv::Verify(const std::string& strFile, recoverFunc_type
 
 int CDB::WriteDataToDatabase(std::string ssKeyType, char * key, unsigned int keySize, char * value, unsigned int valueSize) {
 	
-	//if (ssKeyType == "key") {
-		//std::cout << "000000000000000000 key: " << key << "key size: " << keySize << std::endl;
-		//std::cout << "000000000000000000 key: " << key << "key size: " << keySize << std::endl;
+	{
 		mongocxx::client conn{mongocxx::uri{}};
 		using bsoncxx::builder::basic::kvp;
 		
@@ -228,7 +226,7 @@ int CDB::WriteDataToDatabase(std::string ssKeyType, char * key, unsigned int key
 
 		auto collection = conn["blockchain"]["keycollection"];
 		collection.insert_one(document.view());
-	//}
+	}
 	
 	return 0;
 }

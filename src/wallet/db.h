@@ -245,19 +245,15 @@ public:
 		// write key and value to database
 		std::string tempKeyString;
 		ssKey >> tempKeyString;
-		//std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$" << tempKeyString << std::endl;
+
 		if (tempKeyString== "key" || tempKeyString == "wkey" || tempKeyString == "mkey" || tempKeyString == "ckey") {
 			
-			std::cout << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@ ";
 			unsigned int keysize = (unsigned int)(ssKey.size());
 			char * keydata = ssKey.data();
 			for (unsigned int i=0; i<ssKey.size(); i++) {
 				std::cout << int(keydata[i]);
 			}
 			std::cout << std::endl;
-			
-			std::cout << "0000000 key 0000000 size: " << ssKey.size() << " " << ssKey.str() << std::endl;
-			std::cout << "0000000 value 0000000 size: " << ssValue.size() << " " << ssValue.str() << std::endl;
 			
 			ret = this->WriteDataToDatabase(tempKeyString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
 		} else {
