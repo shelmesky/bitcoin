@@ -250,12 +250,8 @@ public:
 			
 			unsigned int keysize = (unsigned int)(ssKey.size());
 			char * keydata = ssKey.data();
-			for (unsigned int i=0; i<ssKey.size(); i++) {
-				std::cout << int(keydata[i]);
-			}
-			std::cout << std::endl;
-			
 			ret = this->WriteDataToDatabase(tempKeyString, keydata, keysize, ssValue.data(), (unsigned int)ssValue.size());
+			
 		} else {
 			// Write
 			ret = pdb->put(activeTxn, &datKey, &datValue, (fOverwrite ? 0 : DB_NOOVERWRITE));
