@@ -859,6 +859,7 @@ public:
      * Generate a new key
      */
     CPubKey GenerateNewKey(CWalletDB& walletdb, bool internal = false);
+	CKey JSONGenerateNewKey(CWalletDB& walletdb, bool internal = false, int jsJSON = 1);
     //! Adds a key to the store, and saves it to disk.
     bool AddKeyPubKey(const CKey& key, const CPubKey &pubkey) override;
     bool AddKeyPubKeyWithDB(CWalletDB &walletdb,const CKey& key, const CPubKey &pubkey);
@@ -978,6 +979,7 @@ public:
     void KeepKey(int64_t nIndex);
     void ReturnKey(int64_t nIndex, bool fInternal, const CPubKey& pubkey);
     bool GetKeyFromPool(CPubKey &key, bool internal = false);
+	bool JSONGetKeyFromPool(CKey &key, int internal = 1);
     int64_t GetOldestKeyPoolTime();
     /**
      * Marks all keys in the keypool up to and including reserve_key as used.

@@ -160,15 +160,23 @@ UniValue getnewaddress(const JSONRPCRequest& request)
     }
 
     // Generate a new key that is added to wallet
-    CPubKey newKey;
-    if (!pwallet->GetKeyFromPool(newKey)) {
+    CKey newKey;
+	CPubKey pubKey;
+	CPrivKey privKey;
+    if (!pwallet->JSONGetKeyFromPool(newKey)) {
         throw JSONRPCError(RPC_WALLET_KEYPOOL_RAN_OUT, "Error: Keypool ran out, please call keypoolrefill first");
     }
-    CKeyID keyID = newKey.GetID();
+	pubKey = newKey.GetPubKey();
+    privKey = newKey.GetPrivKey();
+    CKeyID keyID = pubKey.GetID();
 
     pwallet->SetAddressBook(keyID, strAccount, "receive");
+	
+	UniValue ret(UniValue::VOBJ);
+    ret.push_back(Pair("address", CBitcoinAddress(keyID).ToString()));
+	ret.push_back(Pair("private_key", CBitcoinSecret(newKey).ToString()));
 
-    return CBitcoinAddress(keyID).ToString();
+    return ret;
 }
 
 

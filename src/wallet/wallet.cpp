@@ -157,6 +157,45 @@ CPubKey CWallet::GenerateNewKey(CWalletDB &walletdb, bool internal)
     return pubkey;
 }
 
+CKey CWallet::JSONGenerateNewKey(CWalletDB &walletdb, bool internal, int isJSON)
+{
+    AssertLockHeld(cs_wallet); // mapKeyMetadata
+    bool fCompressed = CanSupportFeature(FEATURE_COMPRPUBKEY); // default to compressed public keys if we want 0.6.0 wallets
+
+    CKey secret;
+
+    // Create new metadata
+    int64_t nCreationTime = GetTime();
+    CKeyMetadata metadata(nCreationTime);
+
+    // use HD key derivation if HD was enabled during wallet creation
+    if (IsHDEnabled()) {
+        DeriveNewChildKey(walletdb, metadata, secret, (CanSupportFeature(FEATURE_HD_SPLIT) ? internal : false));
+    } else {
+        secret.MakeNewKey(fCompressed);
+    }
+
+    // Compressed public keys were introduced in version 0.6.0
+    if (fCompressed) {
+        SetMinVersion(FEATURE_COMPRPUBKEY);
+    }
+
+    CPubKey pubkey = secret.GetPubKey();
+    assert(secret.VerifyPubKey(pubkey));
+
+    mapKeyMetadata[pubkey.GetID()] = metadata;
+    UpdateTimeFirstKey(nCreationTime);
+
+	if (isJSON != 1) {
+		if (!AddKeyPubKeyWithDB(walletdb, secret, pubkey)) {
+			throw std::runtime_error(std::string(__func__) + ": AddKey failed");
+		}
+	}
+	
+    //return pubkey;
+	return secret;
+}
+
 void CWallet::DeriveNewChildKey(CWalletDB &walletdb, CKeyMetadata& metadata, CKey& secret, bool internal)
 {
     // for now we use a fixed keypath scheme of m/0'/0'/k
@@ -3437,6 +3476,27 @@ bool CWallet::GetKeyFromPool(CPubKey& result, bool internal)
         }
         KeepKey(nIndex);
         result = keypool.vchPubKey;
+    }
+    return true;
+}
+
+bool CWallet::JSONGetKeyFromPool(CKey& result, int internal)
+{
+    CKeyPool keypool;
+    {
+        LOCK(cs_wallet);
+        int64_t nIndex = 0;
+        ReserveKeyFromKeyPool(nIndex, keypool, internal);
+		nIndex = -1;
+        if (nIndex == -1)
+        {
+            if (IsLocked()) return false;
+            CWalletDB walletdb(*dbw);
+            result = JSONGenerateNewKey(walletdb, internal, 1);
+            return true;
+        }
+        KeepKey(nIndex);
+        //result = keypool.vchPubKey;
     }
     return true;
 }
