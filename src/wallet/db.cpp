@@ -220,6 +220,7 @@ int CDB::WriteDataToDatabase(std::string coll_name, std::string ssKeyType, char 
 		if (ssKeyType == "key") {
             /*
              * 当要保存的类型是key类型，只保存真实的公钥，不保存私钥
+             * 私钥使用默认用户的私钥
              * 在IsMine判断地址是否为钱包管理的地址时，只会判断公钥
              */
 			bsoncxx::types::b_binary bin_data_key;
