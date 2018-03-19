@@ -638,7 +638,6 @@ NewReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             CKey key;
             CPrivKey pkey;
             uint256 hash;
-
             if (strType == "key")
             {
                 wss.nKeys++;
@@ -663,18 +662,22 @@ NewReadKeyValue(CWallet* pwallet, CDataStream& ssKey, CDataStream& ssValue,
             bool fSkipCheck = false;
 
             if (!hash.IsNull())
-            {
+            {	
                 // hash pubkey/privkey to accelerate wallet load
                 std::vector<unsigned char> vchKey;
                 vchKey.reserve(vchPubKey.size() + pkey.size());
                 vchKey.insert(vchKey.end(), vchPubKey.begin(), vchPubKey.end());
                 vchKey.insert(vchKey.end(), pkey.begin(), pkey.end());
 
+                //  公钥是真实用户的公钥，但由于使用了虚假的私钥，此处对比必然会失败
+                //  故忽略此处的检查
+				/*
                 if (Hash(vchKey.begin(), vchKey.end()) != hash)
-                {
+                {	
                     strErr = "Error reading wallet database: CPubKey/CPrivKey corrupt";
                     return false;
                 }
+				*/
 
                 fSkipCheck = true;
             }
@@ -869,6 +872,7 @@ bool LoadDataFromDatabse(CWallet* pwallet, CWalletScanState& wss, DBErrors& resu
 				
 				if (!NewReadKeyValue(pwallet, ssKey, ssValue, wss, strType, strErr))
 				{
+					
 					// losing keys is considered a catastrophic error, anything else
 					// we assume the user can live with:
 					if (strType== "key" || strType == "wkey" || strType == "mkey" || strType == "ckey") {
@@ -878,6 +882,7 @@ bool LoadDataFromDatabse(CWallet* pwallet, CWalletScanState& wss, DBErrors& resu
 					if (strType == "name" || strType == "purpose") {
 						result = DB_CORRUPT;
 					}
+					
 				}
 			}
 		

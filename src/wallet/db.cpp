@@ -29,6 +29,11 @@
 
 mongocxx::instance inst{};
 
+uint8_t* global_dummy_key = nullptr;
+unsigned int global_dummy_key_size=0;
+uint8_t* global_dummy_value = nullptr;
+unsigned int global_dummy_value_size=0;
+
 
 namespace {
 //! Make sure database has a unique fileid within the environment. If it
@@ -212,20 +217,51 @@ int CDB::WriteDataToDatabase(std::string coll_name, std::string ssKeyType, char 
 		
 		bsoncxx::builder::basic::document document{};
 		
-		bsoncxx::types::b_binary bin_data_key;
-		bin_data_key.size = keySize;
-		bin_data_key.bytes = (uint8_t*)key;
-		
-		bsoncxx::types::b_binary bin_data_value;
-		bin_data_value.size = valueSize;
-		bin_data_value.bytes = (uint8_t*)value;
-		
-		document.append(kvp("type", ssKeyType));
-		document.append(kvp("key", bin_data_key));
-		document.append(kvp("value", bin_data_value));
+		if (ssKeyType == "key") {
+            /*
+             * 当要保存的类型是key类型，只保存真实的公钥，不保存私钥
+             * 在IsMine判断地址是否为钱包管理的地址时，只会判断公钥
+             */
+			bsoncxx::types::b_binary bin_data_key;
+			bin_data_key.size = keySize;
+			bin_data_key.bytes = (uint8_t*)key;
+			
+			bsoncxx::types::b_binary bin_data_value;
+			if (global_dummy_value == nullptr) {
+				global_dummy_value = (uint8_t*)malloc(1024);
+				memcpy(global_dummy_value, value, valueSize);
+				global_dummy_value_size = valueSize;
+			}
+			bin_data_value.size = global_dummy_value_size;
+			bin_data_value.bytes = global_dummy_value;
+			
+			document.append(kvp("type", ssKeyType));
+			document.append(kvp("key", bin_data_key));
+			document.append(kvp("value", bin_data_value));
 
-		auto collection = conn["blockchain"][coll_name];
-		collection.insert_one(document.view()); //TODO: 获取插入返回的oid，判断是否正确插入数据
+			auto collection = conn["blockchain"][coll_name];
+
+            //TODO: 获取插入返回的oid，判断是否正确插入数据
+			collection.insert_one(document.view());
+			
+		} else {
+			bsoncxx::types::b_binary bin_data_key;
+			bin_data_key.size = keySize;
+			bin_data_key.bytes = (uint8_t*)key;
+			
+			bsoncxx::types::b_binary bin_data_value;
+			bin_data_value.size = valueSize;
+			bin_data_value.bytes = (uint8_t*)value;
+			
+			document.append(kvp("type", ssKeyType));
+			document.append(kvp("key", bin_data_key));
+			document.append(kvp("value", bin_data_value));
+
+			auto collection = conn["blockchain"][coll_name];
+
+            //TODO: 获取插入返回的oid，判断是否正确插入数据
+			collection.insert_one(document.view());
+		}
 	}
 	
 	return 0;
