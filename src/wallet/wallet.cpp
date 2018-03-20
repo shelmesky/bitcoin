@@ -2175,6 +2175,10 @@ CAmount CWallet::JSONGetLegacyBalance(const isminefilter& filter, int minDepth, 
         if (depth < 0 || !CheckFinalTx(*wtx.tx) || wtx.GetBlocksToMaturity() > 0) {
             continue;
         }
+		
+		if (!wtx.IsTrusted()) {
+			continue;
+		}
 
         // Loop through tx outputs and add incoming payments. For outgoing txs,
         // treat change outputs specially, as part of the amount debited.
