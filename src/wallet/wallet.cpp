@@ -2176,6 +2176,7 @@ CAmount CWallet::JSONGetLegacyBalance(const isminefilter& filter, int minDepth, 
             continue;
         }
 		
+        // 剔除未确认的交易
 		if (!wtx.IsTrusted()) {
 			continue;
 		}
