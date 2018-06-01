@@ -1903,7 +1903,7 @@ CAmount CWalletTx::JSONGetAvailableCredit(bool fUseCache, std::string account) c
     }
 
     nAvailableCreditCached = nCredit;
-    fAvailableCreditCached = true;
+    fAvailableCreditCached = false;
     return nCredit;
 }
 
