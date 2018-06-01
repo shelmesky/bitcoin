@@ -929,7 +929,7 @@ public:
     // ResendWalletTransactionsBefore may only be called if fBroadcastTransactions!
     std::vector<uint256> ResendWalletTransactionsBefore(int64_t nTime, CConnman* connman);
     CAmount GetBalance() const;
-	CAmount JSONGetBalance(std::string& account) const;
+	CAmount JSONGetBalance(const std::string& account) const;
     CAmount GetUnconfirmedBalance() const;
     CAmount GetImmatureBalance() const;
     CAmount GetWatchOnlyBalance() const;

@@ -2080,7 +2080,7 @@ CAmount CWallet::GetBalance() const
     return nTotal;
 }
 
-CAmount CWallet::JSONGetBalance(std::string& account) const
+CAmount CWallet::JSONGetBalance(const std::string& account) const
 {
     CAmount nTotal = 0;
     {
